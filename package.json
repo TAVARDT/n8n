@@ -1,0 +1,33 @@
+{
+  "name": "@tavardt/n8n-tools",
+  "version": "1.0.0",
+  "description": "Elite CLI tools for managing and monitoring self-hosted n8n automation instances — TAVARDT Agency.",
+  "main": "cli.js",
+  "bin": {
+    "tavardt-n8n": "./cli.js"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TAVARDT/n8n.git"
+  },
+  "keywords": ["n8n", "automation", "backup", "security", "devops", "tavardt"],
+  "author": {
+    "name": "TAVARDT Agency",
+    "email": "contact@tavardt.com",
+    "url": "https://ag.tavardt.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "health-check": "node cli.js health-check",
+    "backup": "node cli.js backup"
+  },
+  "dependencies": {
+    "commander": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
