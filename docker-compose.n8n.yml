@@ -1,0 +1,103 @@
+# ----------------------------------------------------------------------
+# TAVARDT Elite n8n Docker Compose Stack
+# ----------------------------------------------------------------------
+# Description: Production-ready n8n stack with PostgreSQL backend,
+# isolated networking, resource limits, and secure secret management.
+#
+# Setup: Copy .env.example to .env and fill in your values.
+# Run: docker compose up -d
+# ----------------------------------------------------------------------
+
+version: '3.8'
+
+services:
+  # ----------------------------------------
+  # n8n Automation Engine
+  # ----------------------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"  # Bind ONLY to localhost (Nginx proxies externally)
+    environment:
+      # Core Settings
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://${N8N_HOST}/
+
+      # Database (Use PostgreSQL instead of SQLite for production B2B)
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+
+      # Security: Encryption key for stored credentials (API keys, tokens)
+      # CRITICAL: Generate with: openssl rand -hex 32
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+
+      # Authentication (Prevent unauthorized access to the editor)
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+
+      # Disable telemetry and diagnostics (Privacy & Security)
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=true
+
+      # Timezone
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+    # Resource Limits (Prevent runaway workflows from crashing the server)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - n8n_internal
+
+  # ----------------------------------------
+  # PostgreSQL Database
+  # ----------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # PostgreSQL should NEVER be exposed to the internet
+    networks:
+      - n8n_internal
+
+volumes:
+  n8n_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  n8n_internal:
+    driver: bridge
+    internal: false  # Must be false so n8n can call external APIs
